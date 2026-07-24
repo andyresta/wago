@@ -1,0 +1,12 @@
+.env
+logs/*
+build/
+server
+evolution-go
+*.exe
+*.prof
+coverage.*
+.air.toml
+.idea/
+.vscode/
+.DS_Store
