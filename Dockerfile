@@ -1,6 +1,13 @@
-FROM golang:1.25.0-alpine AS build
+# Stage build: Debian Bookworm (glibc) agar CGO + libwebp (chai2010/webp) bisa dikompilasi.
+# Alpine/musl sering gagal saat link paket webp berbasis CGO.
+FROM golang:1.25-bookworm AS build
 
-RUN apk update && apk add --no-cache git build-base libjpeg-turbo-dev libwebp-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    build-essential \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
@@ -15,13 +22,21 @@ RUN go mod download
 COPY . .
 
 ARG VERSION=dev
-RUN apk add --no-cache gcc musl-dev
+# Keterangan: compile binary server dengan CGO (dibutuhkan chai2010/webp) dan injeksi versi.
 RUN CGO_ENABLED=1 go build -ldflags "-X main.version=${VERSION}" -o server ./cmd/evolution-go
 
-FROM alpine:3.19.1 AS final
+# Stage final: bookworm-slim agar runtime cocok dengan binary yang di-link ke glibc/libwebp.
+FROM debian:bookworm-slim AS final
 
 # poppler-utils provides pdftoppm, used to rasterize PDF page 1 for /send/media document thumbnails
-RUN apk update && apk add --no-cache tzdata ffmpeg libjpeg-turbo libwebp poppler-utils
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tzdata \
+    ffmpeg \
+    libjpeg62-turbo \
+    libwebp7 \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
